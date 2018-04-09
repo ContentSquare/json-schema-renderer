@@ -1,11 +1,12 @@
-package com.contentsquare
+package com.contentsquare.jsonschemarenderer
 
 import argus.schema.Schema
 import argus.schema.Schema.{ItemsRoot, ListSimpleTypeTyp, Root, SimpleTypeTyp, SimpleTypes}
 import scalatags.Text
+import scalatags.Text.TypedTag
 import scalatags.Text.all._
 
-object Renderer {
+object SchemaRenderer {
   private def renderType(root: Root): String =
     (root.typ, root.$ref) match {
       case (Some(SimpleTypeTyp(SimpleTypes.Array)), _) =>
@@ -26,13 +27,8 @@ object Renderer {
         "unknown type"
     }
 
-  def render(title: String, root: Root): Text.TypedTag[String] =
-    html(lang := "en",
-      head(
-        meta(charset := "utf-8"),
-        meta(name := "viewport", content := "width=device-width, initial-scale=1, shrink-to-fit=no"),
-        link(href := "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css", rel := "stylesheet")
-      ),
+  def render(title: String, root: Root): TypedTag[String] =
+    Boilerplate.render(
       body(
         renderDefinition(title, root),
         for (definition <- root.definitions.toList.flatten) yield renderDefinition(definition.name, definition.schema)

@@ -1,6 +1,6 @@
-package com.contentsquare
+package com.contentsquare.jsonschemarenderer
 
-import argus.schema.Schema.{Field, ItemsRoot, ListSimpleTypeTyp, Root, SimpleTypeTyp, SimpleTypes}
+import argus.schema.Schema.{Field, ItemsRoot, Root, SimpleTypeTyp, SimpleTypes}
 
 object DefinitionChecker {
   private def isObject(root: Root): Boolean =
