@@ -36,8 +36,10 @@ object SchemaRenderer {
     )
 
   private def renderDefinition(title: String, root: Root) = {
+    val anchor = "/definitions/" + title
+
     div(cls := "container")(
-      h1(id := title)(title),
+      h1(id := anchor)(title),
       for (prop <- root.properties.toList.flatten) yield {
         renderProp(root, prop)
       }
