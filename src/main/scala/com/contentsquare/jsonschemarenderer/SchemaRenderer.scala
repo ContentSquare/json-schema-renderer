@@ -30,19 +30,23 @@ object SchemaRenderer {
   def render(title: String, root: Root): TypedTag[String] =
     Boilerplate.render(
       body(
-        renderDefinition(title, root),
-        for (definition <- root.definitions.toList.flatten) yield renderDefinition(definition.name, definition.schema)
+        div(cls := "container")(
+          renderDefinition(title, root),
+          for (definition <- root.definitions.toList.flatten) yield renderDefinition(definition.name, definition.schema)
+        )
       )
     )
 
   private def renderDefinition(title: String, root: Root) = {
     val anchor = "/definitions/" + title
 
-    div(cls := "container")(
-      h1(id := anchor)(title),
-      for (prop <- root.properties.toList.flatten) yield {
-        renderProp(root, prop)
-      }
+    Seq(
+      h1(id := anchor, cls := "display-3")(title),
+      dl(cls := "row")(
+        for (prop <- root.properties.toList.flatten) yield {
+          renderProp(root, prop)
+        }
+      )
     )
   }
 
@@ -69,11 +73,13 @@ object SchemaRenderer {
       }
     ).getOrElse("optional")
 
-    div(
-      div(
-        h3(prop.name),
+    Seq(
+      dt(cls := "col-sm-2")(
+        span(cls := "badge badge-pill badge-dark")(prop.name)
+      ),
+      dd(cls := "col-sm-10")(
+        p(strong(title)),
         p(cls := "text-muted")(typ + " - " + requirement),
-        p(cls := "lead")(title),
         p(desc),
         link,
         arrayElLink
