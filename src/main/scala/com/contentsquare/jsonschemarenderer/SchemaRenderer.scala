@@ -62,22 +62,35 @@ object SchemaRenderer {
     val title = prop.get("title").map(_.str).getOrElse("")
     val desc = prop.get("description").map(_.str).getOrElse("")
 
-    val link: Text.TypedTag[String] = prop.get("$ref").map { ref =>
+    val link: Option[Text.TypedTag[String]] = prop.get("$ref").map { ref =>
       val refStr = ref.str
         a(href := refStr)(s"See $refStr")
-    }.getOrElse(small())
+    }
 
     val arrayElLink = prop.get("items").flatMap(_.obj.get("$ref")) match {
       case Some(r) =>
         val refStr = r.str
-        a(href := refStr)(s"See $refStr")
+        Some(a(href := refStr)(s"See $refStr"))
       case _ =>
-        small()
+        None
     }
 
     val requirement = if (required) "required" else "optional"
 
     val typ = renderType(prop)
+
+    val examples =
+        prop.get("examples").map { exs =>
+          div(
+            p(cls := "text-secondary")(em("Examples:")),
+            ul(cls := "list-unstyled")(
+              exs.arr.map { ex =>
+                li(small(pre(cls := "text-secondary")(ex.toString())))
+              }
+            )
+          )
+        }
+
 
     Seq(
       dt(cls := "col-sm-2")(
@@ -88,7 +101,8 @@ object SchemaRenderer {
         p(cls := "text-muted")(typ + " - " + requirement),
         p(desc),
         link,
-        arrayElLink
+        arrayElLink,
+        examples
       )
     )
   }
