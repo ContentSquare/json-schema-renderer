@@ -7,6 +7,21 @@ import scala.collection.mutable
 import ujson.Js
 
 object SchemaRenderer {
+  private val validationFields = Set(
+    "maximum",
+    "exclusiveMaximum",
+    "minimum",
+    "exclusiveMinimum",
+    "maxLength",
+    "minLength",
+    "pattern",
+    "maxItems",
+    "minItems",
+    "uniqueItems",
+    "maxProperties",
+    "minProperties",
+  )
+
   private def renderType(prop: mutable.Map[String, Js.Value]): String =
     (prop.get("type"), prop.get("$ref").map(_.str)) match {
       case (Some(Js.Str("array")), _) =>
@@ -113,6 +128,20 @@ object SchemaRenderer {
           )
         }
 
+    val validations = {
+      val els = prop.filterKeys(validationFields.contains).toList.map { case (k, v) =>
+        p(strong(k + ": "), v.toString())
+      }
+
+      if (els.nonEmpty) {
+        Some(
+          p(cls := "text-secondary")(em("Validations:")) +: els
+        )
+      } else {
+        None
+      }
+    }
+
 
     Seq(
       dt(cls := "col-sm-2")(
@@ -124,6 +153,7 @@ object SchemaRenderer {
         p(desc),
         link,
         arrayElLink,
+        validations,
         examples
       )
     )
