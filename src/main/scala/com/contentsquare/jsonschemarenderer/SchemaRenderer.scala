@@ -44,13 +44,14 @@ object SchemaRenderer {
 
   def render(title: String, root: Js.Value): TypedTag[String] = {
     val definitions = root("definitions").obj.toList
-    val definitionNames = title +: definitions.map(_._1)
+
+    val allDefinitions = (title -> root) :: definitions
 
     Boilerplate.render(
       body(cls := "pt-5 pl-3")(
         div(cls := "container row")(
-          renderNav(definitionNames),
-          div(cls := "col-sm-10 border-left pl-5")(
+          renderNav(allDefinitions),
+          div(cls := "col-sm-9 border-left pl-5")(
             renderDefinition(title, root.obj),
             for ((name, prop) <- definitions) yield {
               renderDefinition(name, prop.obj)
@@ -61,18 +62,45 @@ object SchemaRenderer {
       )
   }
 
-  private def renderNav(definitionNames: List[String]) = {
+  private def renderNav(definitionNames: List[(String, Js.Value)]) = {
     Seq(
-      div(cls := "col-sm-2 position-fixed", zIndex := 100)(
-        ul(cls := "nav flex-column")(
-          for (name <- definitionNames) yield {
-            li(cls := "nav-item mb-2")(
-              a(href := "#/definitions/" + name, cls := "text-dark")(name)
+      div(id := "nav-accordion", cls := "col-sm-3")(
+        for ((name, prop) <- definitionNames) yield {
+          val collapseId = s"collapse-def-$name"
+          val mainDef: TypedTag[String] =
+            div(cls := "card-header text-dark", id := s"def-$name")(
+              h5(cls := "mb-0")(
+                span(
+                  role := "button",
+                  cls := "btn dropdown-toggle text-white",
+                  data("toggle") := "collapse",
+                  data("target") := "#" + collapseId,
+                  aria.expanded := "false",
+                  aria.controls := collapseId
+                )(name)
+              )
             )
-          }
-        )
-      ),
-      div(cls := "col-sm-2")
+
+          val props: TypedTag[String] =
+            div(id := collapseId, cls := "collapse", data("parent") := "#nav-accordion")(
+              div(cls := "card-body")(
+                ul(cls := "nav flex-column")(
+                  for (propName <- prop.obj.get("properties").toList.flatMap(_.obj.keys)) yield {
+                    li(cls := "nav-item pl-3")(
+                      a(href := s"#/definitions/$name/$propName")(small(cls := "text-white")(propName))
+                    )
+                  }
+                )
+              )
+            )
+
+          div(cls := "card border-light text-white bg-dark")(
+            mainDef,
+            props
+          )
+        }
+
+      )
     )
   }
 
@@ -89,13 +117,13 @@ object SchemaRenderer {
       dl(cls := "row")(
         for ((name, prop) <- fields("properties").obj.toList) yield {
           val required = requiredFields.contains(name)
-          renderProp(name, prop.obj, required)
+          renderProp(name, prop.obj, required, title)
         }
       )
     )
   }
 
-  private def renderProp(name: String, prop: mutable.Map[String, Js.Value], required: Boolean) = {
+  private def renderProp(name: String, prop: mutable.Map[String, Js.Value], required: Boolean, parentName: String) = {
     val title = prop.get("title").map(_.str).getOrElse("")
     val desc = prop.get("description").map(_.str).getOrElse("")
 
@@ -144,10 +172,10 @@ object SchemaRenderer {
 
 
     Seq(
-      dt(cls := "col-sm-2")(
-        span(cls := "badge badge-pill badge-dark")(name)
+      dt(cls := "col-sm-3")(
+        span(id := s"/definitions/$parentName/$name", cls := "badge badge-pill badge-dark")(name)
       ),
-      dd(cls := "col-sm-10")(
+      dd(cls := "col-sm-9")(
         p(strong(title)),
         p(cls := "text-muted")(typ + " - " + requirement),
         p(desc),
