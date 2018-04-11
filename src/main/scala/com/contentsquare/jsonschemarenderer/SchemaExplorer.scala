@@ -34,6 +34,8 @@ object SchemaExplorer {
   }
 
   def writeHtml(inputFolder: File, outputFolder: File): Unit = {
+    val css = Source.fromResource("main.css")
+    Files.write(outputFolder.toPath.resolve("main.css"), css.mkString.getBytes)
     val paths = listFiles(inputFolder, inputFolder)
     paths.foreach(p => writeSchemaHtml(p, inputFolder.toPath, outputFolder.toPath))
     val indexHtml = IndexRenderer.render(paths)

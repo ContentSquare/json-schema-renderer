@@ -32,19 +32,10 @@ object SchemaRenderer {
     val definitionNames = title +: definitions.map(_._1)
 
     Boilerplate.render(
-      body(
+      body(cls := "pt-5 pl-3")(
         div(cls := "container row")(
-          div(cls := "col-sm-2 position-fixed", zIndex := 100)(
-            ul(cls := "nav flex-column")(
-              for (name <- definitionNames) yield {
-                li(cls := "nav-item")(
-                  a(href := "#/definitions/" + name)(name)
-                )
-              }
-            )
-          ),
-          div(cls := "col-sm-2"),
-          div(cls := "col-sm-10")(
+          renderNav(definitionNames),
+          div(cls := "col-sm-10 border-left pl-5")(
             renderDefinition(title, root.obj),
             for ((name, prop) <- definitions) yield {
               renderDefinition(name, prop.obj)
@@ -55,6 +46,21 @@ object SchemaRenderer {
       )
   }
 
+  private def renderNav(definitionNames: List[String]) = {
+    Seq(
+      div(cls := "col-sm-2 position-fixed", zIndex := 100)(
+        ul(cls := "nav flex-column")(
+          for (name <- definitionNames) yield {
+            li(cls := "nav-item mb-2")(
+              a(href := "#/definitions/" + name, cls := "text-dark")(name)
+            )
+          }
+        )
+      ),
+      div(cls := "col-sm-2")
+    )
+  }
+
   private def renderDefinition(title: String, fields: mutable.Map[String, Js.Value]) = {
     val anchor = "/definitions/" + title
     val requiredFields =
@@ -63,8 +69,8 @@ object SchemaRenderer {
         .getOrElse(Seq.empty)
         .toSet
 
-    Seq(
-      h1(id := anchor, cls := "display-3")(title),
+    div(
+      h1(id := anchor, cls := "display-3 pb-3")(title),
       dl(cls := "row")(
         for ((name, prop) <- fields("properties").obj.toList) yield {
           val required = requiredFields.contains(name)
