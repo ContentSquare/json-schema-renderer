@@ -27,17 +27,33 @@ object SchemaRenderer {
         "unknown type"
     }
 
-  def render(title: String, root: Js.Value): TypedTag[String] =
+  def render(title: String, root: Js.Value): TypedTag[String] = {
+    val definitions = root("definitions").obj.toList
+    val definitionNames = title +: definitions.map(_._1)
+
     Boilerplate.render(
       body(
-        div(cls := "container")(
-          renderDefinition(title, root.obj),
-          for ((name, prop) <- root("definitions").obj.toList) yield {
-            renderDefinition(name, prop.obj)
-          }
+        div(cls := "container row")(
+          div(cls := "col-sm-2 position-fixed", zIndex := 100)(
+            ul(cls := "nav flex-column")(
+              for (name <- definitionNames) yield {
+                li(cls := "nav-item")(
+                  a(href := "#/definitions/" + name)(name)
+                )
+              }
+            )
+          ),
+          div(cls := "col-sm-2"),
+          div(cls := "col-sm-10")(
+            renderDefinition(title, root.obj),
+            for ((name, prop) <- definitions) yield {
+              renderDefinition(name, prop.obj)
+            }
+          )
         )
       )
-    )
+      )
+  }
 
   private def renderDefinition(title: String, fields: mutable.Map[String, Js.Value]) = {
     val anchor = "/definitions/" + title
