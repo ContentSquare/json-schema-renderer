@@ -1,88 +1,130 @@
 package com.contentsquare.jsonschemarenderer
 
-import argus.schema.Schema
-import argus.schema.Schema.{ItemsRoot, ListSimpleTypeTyp, Root, SimpleTypeTyp, SimpleTypes}
 import scalatags.Text
 import scalatags.Text.TypedTag
 import scalatags.Text.all._
+import scala.collection.mutable
+import ujson.Js
 
 object SchemaRenderer {
-  private def renderType(root: Root): String =
-    (root.typ, root.$ref) match {
-      case (Some(SimpleTypeTyp(SimpleTypes.Array)), _) =>
-        val innerType = root.items match {
-          case Some(ItemsRoot(r)) =>
-            " of " + renderType(r)
+  private def renderType(prop: mutable.Map[String, Js.Value]): String =
+    (prop.get("type"), prop.get("$ref").map(_.str)) match {
+      case (Some(Js.Str("array")), _) =>
+        val innerType = prop.get("items") match {
+          case Some(Js.Obj(typ)) =>
+            " of " + renderType(typ)
           case _ =>
             ""
         }
         "array" + innerType
-      case (Some(SimpleTypeTyp(tp)), _) =>
-        tp.name
-      case (Some(ListSimpleTypeTyp(xs)), _) =>
-        xs.map(_.name).mkString("", ",", "or")
+      case (Some(Js.Str(tp)), _) =>
+        tp
+      case (Some(Js.Arr(xs)), _) =>
+        xs.map(_.str).mkString(" or ")
       case (_, Some(ref)) =>
         ref
       case _ =>
         "unknown type"
     }
 
-  def render(title: String, root: Root): TypedTag[String] =
+  def render(title: String, root: Js.Value): TypedTag[String] = {
+    val definitions = root("definitions").obj.toList
+    val definitionNames = title +: definitions.map(_._1)
+
     Boilerplate.render(
-      body(
-        div(cls := "container")(
-          renderDefinition(title, root),
-          for (definition <- root.definitions.toList.flatten) yield renderDefinition(definition.name, definition.schema)
+      body(cls := "pt-5 pl-3")(
+        div(cls := "container row")(
+          renderNav(definitionNames),
+          div(cls := "col-sm-10 border-left pl-5")(
+            renderDefinition(title, root.obj),
+            for ((name, prop) <- definitions) yield {
+              renderDefinition(name, prop.obj)
+            }
+          )
         )
       )
-    )
+      )
+  }
 
-  private def renderDefinition(title: String, root: Root) = {
-    val anchor = "/definitions/" + title
-
+  private def renderNav(definitionNames: List[String]) = {
     Seq(
-      h1(id := anchor, cls := "display-3")(title),
+      div(cls := "col-sm-2 position-fixed", zIndex := 100)(
+        ul(cls := "nav flex-column")(
+          for (name <- definitionNames) yield {
+            li(cls := "nav-item mb-2")(
+              a(href := "#/definitions/" + name, cls := "text-dark")(name)
+            )
+          }
+        )
+      ),
+      div(cls := "col-sm-2")
+    )
+  }
+
+  private def renderDefinition(title: String, fields: mutable.Map[String, Js.Value]) = {
+    val anchor = "/definitions/" + title
+    val requiredFields =
+      fields.get("required")
+        .map(_.arr.map(_.str))
+        .getOrElse(Seq.empty)
+        .toSet
+
+    div(
+      h1(id := anchor, cls := "display-3 pb-3")(title),
       dl(cls := "row")(
-        for (prop <- root.properties.toList.flatten) yield {
-          renderProp(root, prop)
+        for ((name, prop) <- fields("properties").obj.toList) yield {
+          val required = requiredFields.contains(name)
+          renderProp(name, prop.obj, required)
         }
       )
     )
   }
 
-  private def renderProp(parent: Root, prop: Schema.Field) = {
-    val title = prop.schema.title.getOrElse("")
-    val desc = prop.schema.description.getOrElse("")
-    val link: Text.TypedTag[String] = prop.schema.$ref.map { ref =>
-        a(href := ref)(s"See $ref")
-    }.getOrElse(small())
-    val arrayElLink = prop.schema.items match {
-      case Some(ItemsRoot(r)) if r.$ref.isDefined =>
-        val ref = r.$ref.get
-        a(href := ref)(s"See $ref")
-      case _ =>
-        small()
+  private def renderProp(name: String, prop: mutable.Map[String, Js.Value], required: Boolean) = {
+    val title = prop.get("title").map(_.str).getOrElse("")
+    val desc = prop.get("description").map(_.str).getOrElse("")
+
+    val link: Option[Text.TypedTag[String]] = prop.get("$ref").map { ref =>
+      val refStr = ref.str
+        a(href := refStr)(s"See $refStr")
     }
 
-    val typ = renderType(prop.schema)
-    val requirement = parent.required.map(rs =>
-      if (rs.contains(prop.name)) {
-        "required"
-      } else {
-        "optional"
-      }
-    ).getOrElse("optional")
+    val arrayElLink = prop.get("items").flatMap(_.obj.get("$ref")) match {
+      case Some(r) =>
+        val refStr = r.str
+        Some(a(href := refStr)(s"See $refStr"))
+      case _ =>
+        None
+    }
+
+    val requirement = if (required) "required" else "optional"
+
+    val typ = renderType(prop)
+
+    val examples =
+        prop.get("examples").map { exs =>
+          div(
+            p(cls := "text-secondary")(em("Examples:")),
+            ul(cls := "list-unstyled")(
+              exs.arr.map { ex =>
+                li(small(pre(cls := "text-secondary")(ex.toString())))
+              }
+            )
+          )
+        }
+
 
     Seq(
       dt(cls := "col-sm-2")(
-        span(cls := "badge badge-pill badge-dark")(prop.name)
+        span(cls := "badge badge-pill badge-dark")(name)
       ),
       dd(cls := "col-sm-10")(
         p(strong(title)),
         p(cls := "text-muted")(typ + " - " + requirement),
         p(desc),
         link,
-        arrayElLink
+        arrayElLink,
+        examples
       )
     )
   }
