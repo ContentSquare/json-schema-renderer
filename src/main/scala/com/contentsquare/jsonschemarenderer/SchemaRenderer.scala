@@ -12,7 +12,7 @@ object SchemaRenderer {
       case (Some(Js.Str("array")), _) =>
         val innerType = prop.get("items") match {
           case Some(Js.Obj(typ)) =>
-            " of " + typ
+            " of " + renderType(typ)
           case _ =>
             ""
         }
@@ -20,7 +20,7 @@ object SchemaRenderer {
       case (Some(Js.Str(tp)), _) =>
         tp
       case (Some(Js.Arr(xs)), _) =>
-        xs.map(_.str).mkString("", ",", "or")
+        xs.map(_.str).mkString(" or ")
       case (_, Some(ref)) =>
         ref
       case _ =>
