@@ -1,81 +1,87 @@
 package com.contentsquare.jsonschemarenderer
 
-import argus.schema.Schema
-import argus.schema.Schema.{ItemsRoot, ListSimpleTypeTyp, Root, SimpleTypeTyp, SimpleTypes}
 import scalatags.Text
 import scalatags.Text.TypedTag
 import scalatags.Text.all._
+import scala.collection.mutable
+import ujson.Js
 
 object SchemaRenderer {
-  private def renderType(root: Root): String =
-    (root.typ, root.$ref) match {
-      case (Some(SimpleTypeTyp(SimpleTypes.Array)), _) =>
-        val innerType = root.items match {
-          case Some(ItemsRoot(r)) =>
-            " of " + renderType(r)
+  private def renderType(prop: mutable.Map[String, Js.Value]): String =
+    (prop.get("type"), prop.get("$ref").map(_.str)) match {
+      case (Some(Js.Str("array")), _) =>
+        val innerType = prop.get("items") match {
+          case Some(Js.Obj(typ)) =>
+            " of " + typ
           case _ =>
             ""
         }
         "array" + innerType
-      case (Some(SimpleTypeTyp(tp)), _) =>
-        tp.name
-      case (Some(ListSimpleTypeTyp(xs)), _) =>
-        xs.map(_.name).mkString("", ",", "or")
+      case (Some(Js.Str(tp)), _) =>
+        tp
+      case (Some(Js.Arr(xs)), _) =>
+        xs.map(_.str).mkString("", ",", "or")
       case (_, Some(ref)) =>
         ref
       case _ =>
         "unknown type"
     }
 
-  def render(title: String, root: Root): TypedTag[String] =
+  def render(title: String, root: Js.Value): TypedTag[String] =
     Boilerplate.render(
       body(
         div(cls := "container")(
-          renderDefinition(title, root),
-          for (definition <- root.definitions.toList.flatten) yield renderDefinition(definition.name, definition.schema)
+          renderDefinition(title, root.obj),
+          for ((name, prop) <- root("definitions").obj.toList) yield {
+            renderDefinition(name, prop.obj)
+          }
         )
       )
     )
 
-  private def renderDefinition(title: String, root: Root) = {
+  private def renderDefinition(title: String, fields: mutable.Map[String, Js.Value]) = {
     val anchor = "/definitions/" + title
+    val requiredFields =
+      fields.get("required")
+        .map(_.arr.map(_.str))
+        .getOrElse(Seq.empty)
+        .toSet
 
     Seq(
       h1(id := anchor, cls := "display-3")(title),
       dl(cls := "row")(
-        for (prop <- root.properties.toList.flatten) yield {
-          renderProp(root, prop)
+        for ((name, prop) <- fields("properties").obj.toList) yield {
+          val required = requiredFields.contains(name)
+          renderProp(name, prop.obj, required)
         }
       )
     )
   }
 
-  private def renderProp(parent: Root, prop: Schema.Field) = {
-    val title = prop.schema.title.getOrElse("")
-    val desc = prop.schema.description.getOrElse("")
-    val link: Text.TypedTag[String] = prop.schema.$ref.map { ref =>
-        a(href := ref)(s"See $ref")
+  private def renderProp(name: String, prop: mutable.Map[String, Js.Value], required: Boolean) = {
+    val title = prop.get("title").map(_.str).getOrElse("")
+    val desc = prop.get("description").map(_.str).getOrElse("")
+
+    val link: Text.TypedTag[String] = prop.get("$ref").map { ref =>
+      val refStr = ref.str
+        a(href := refStr)(s"See $refStr")
     }.getOrElse(small())
-    val arrayElLink = prop.schema.items match {
-      case Some(ItemsRoot(r)) if r.$ref.isDefined =>
-        val ref = r.$ref.get
-        a(href := ref)(s"See $ref")
+
+    val arrayElLink = prop.get("items").flatMap(_.obj.get("$ref")) match {
+      case Some(r) =>
+        val refStr = r.str
+        a(href := refStr)(s"See $refStr")
       case _ =>
         small()
     }
 
-    val typ = renderType(prop.schema)
-    val requirement = parent.required.map(rs =>
-      if (rs.contains(prop.name)) {
-        "required"
-      } else {
-        "optional"
-      }
-    ).getOrElse("optional")
+    val requirement = if (required) "required" else "optional"
+
+    val typ = renderType(prop)
 
     Seq(
       dt(cls := "col-sm-2")(
-        span(cls := "badge badge-pill badge-dark")(prop.name)
+        span(cls := "badge badge-pill badge-dark")(name)
       ),
       dd(cls := "col-sm-10")(
         p(strong(title)),

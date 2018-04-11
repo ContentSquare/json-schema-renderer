@@ -3,8 +3,8 @@ package com.contentsquare.jsonschemarenderer
 import java.io.File
 import java.nio.file.{Files, Path}
 import FileUtils._
+import ujson._
 
-import argus.schema.Schema
 
 import scala.io.Source
 
@@ -27,7 +27,7 @@ object SchemaExplorer {
   private def writeSchemaHtml(schemaPath: Path, inputFolder: Path, outputFolder: Path): Unit = {
     val out = outputFolder.resolve(stripExtension(schemaPath.toString) + ".html")
     val in = inputFolder.resolve(schemaPath).toFile
-    val schema = Schema.fromJson(Source.fromFile(in).mkString)
+    val schema = ujson.read(Source.fromFile(in).mkString)
     val html = SchemaRenderer.render(capitalize(stripExtension(schemaPath.getFileName.toString)), schema)
     Files.createDirectories(out.getParent)
     Files.write(out, html.toString().getBytes)
