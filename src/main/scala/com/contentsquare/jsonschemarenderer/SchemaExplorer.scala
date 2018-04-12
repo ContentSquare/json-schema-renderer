@@ -34,6 +34,7 @@ object SchemaExplorer {
   }
 
   def writeHtml(inputFolder: File, outputFolder: File): Unit = {
+    Files.createDirectories(outputFolder.toPath)
     val css = Source.fromResource("main.css")
     Files.write(outputFolder.toPath.resolve("main.css"), css.mkString.getBytes)
     val paths = listFiles(inputFolder, inputFolder)
