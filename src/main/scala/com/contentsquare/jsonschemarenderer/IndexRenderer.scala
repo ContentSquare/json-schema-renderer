@@ -42,7 +42,9 @@ object IndexRenderer {
       for (file <- directoryNode.children.collect { case FileNode(file) => file }) yield {
         val name = stripExtension(file.getFileName.toString)
         val htmlFile = stripExtension(file.toString) + ".html"
-        a(href := htmlFile)(" " * 2 * (indent + 1) + name)
+        p(
+          a(href := htmlFile)(" " * 2 * (indent + 1) + name)
+        )
       },
       for (dir <- directoryNode.children.collect { case d@DirectoryNode(_, _) => d }) yield {
         renderTree(dir, indent + 1)
